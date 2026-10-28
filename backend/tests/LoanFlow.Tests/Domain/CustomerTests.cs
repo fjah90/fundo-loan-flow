@@ -1,3 +1,4 @@
+using System.Globalization;
 using LoanFlow.Domain;
 using Xunit;
 
@@ -245,6 +246,59 @@ public class CustomerTests
 
         // Assert
         Assert.Equal("requestedAmount", ex.ParamName);
+    }
+
+    [Theory]
+    [InlineData("100.001")]
+    [InlineData("10000000000000000")]
+    public void Create_WithUnstorableAmount_ThrowsArgumentOutOfRangeForRequestedAmount(string amount)
+    {
+        // Act
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Customer.Create("Ada", "Lovelace", ValidSsn, ValidAddress(), "Acme", decimal.Parse(amount, CultureInfo.InvariantCulture)));
+
+        // Assert
+        Assert.Equal("requestedAmount", ex.ParamName);
+    }
+
+    [Theory]
+    [InlineData("100.001")]
+    [InlineData("10000000000000000")]
+    public void UpdateFrom_WithUnstorableAmount_ThrowsArgumentOutOfRangeForRequestedAmount(string amount)
+    {
+        // Arrange
+        var customer = NewCustomer();
+
+        // Act
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            customer.UpdateFrom("Grace", "Hopper", ValidAddress(), "Navy", decimal.Parse(amount, CultureInfo.InvariantCulture)));
+
+        // Assert
+        Assert.Equal("requestedAmount", ex.ParamName);
+        Assert.Equal(5000m, customer.Application.RequestedAmount);
+    }
+
+    [Fact]
+    public void Create_WithTwoDecimalAmount_AcceptsAmount()
+    {
+        // Act
+        var customer = Customer.Create("Ada", "Lovelace", ValidSsn, ValidAddress(), "Acme", 100.10m);
+
+        // Assert
+        Assert.Equal(100.10m, customer.Application.RequestedAmount);
+    }
+
+    [Fact]
+    public void UpdateFrom_WithTwoDecimalAmount_AcceptsAmount()
+    {
+        // Arrange
+        var customer = NewCustomer();
+
+        // Act
+        customer.UpdateFrom("Grace", "Hopper", ValidAddress(), "Navy", 100.10m);
+
+        // Assert
+        Assert.Equal(100.10m, customer.Application.RequestedAmount);
     }
 
     [Fact]
