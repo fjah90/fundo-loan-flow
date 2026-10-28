@@ -126,6 +126,32 @@ select[aria-invalid="true"] {
   border-radius: var(--radius);
 }
 
+.result {
+  border-left-width: 3px;
+}
+
+.result h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.result-approved {
+  border-left-color: var(--success);
+}
+
+.result-approved h1 svg {
+  color: var(--success);
+}
+
+.result-denied {
+  border-left-color: var(--danger);
+}
+
+.result-denied h1 svg {
+  color: var(--danger);
+}
+
 .field {
   display: flex;
   flex-direction: column;
