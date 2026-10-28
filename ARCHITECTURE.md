@@ -29,6 +29,8 @@ fundo-loan-flow/
 
 Stack: .NET 10 LTS, EF Core 10 + Npgsql, PostgreSQL 18, xUnit v3 + Testcontainers, Next.js 16 + React 19, Node 26, Docker Compose. These were the latest stable versions on 2026-10-27.
 
+Compose publishes `web` on host port 3080, the API on 5080, `external-mock` on 4080 and PostgreSQL on 5442. Inside the network they listen on 3000, 8080, 4000 and 5432. The API reads `ExternalService:BaseUrl` (the mock) and `Blacklist:Ssns` (the blocked SSNs, required at startup) from configuration.
+
 Dependencies point inward: `Api → Infrastructure → Application → Domain`. Project references enforce it at compile time. Api references Infrastructure **only** in `Program.cs` to register services. The controller only sees Application types. Domain and Application never reference EF Core, ASP.NET or `HttpClient`.
 
 | Layer | Owns | Does not own |
@@ -69,14 +71,14 @@ public interface IDenyRule
 
 ## 3. Submission flow and transaction
 
-`SubmitLoanApplication.Handle(command)`:
+`SubmitLoanApplication.HandleAsync(command)`:
 
-1. Build the value objects. Invalid input returns 400 ProblemDetails before any rule runs.
+1. Build the value objects. Invalid input returns 400 ProblemDetails before any rule runs. The candidate `Customer` is built here too, so every field is validated first.
 2. `RuleEngine.Evaluate`. If any rule denies, return `Denied(reasons)`.
 3. `ICustomerRepository.GetBySsnAsync(ssn)`:
    - Not found: `Customer.Create(...)` creates the customer and its application.
    - Found: `customer.UpdateFrom(...)` updates the personal data and the existing application's amount. No second customer or application is created.
-4. `IIntegrationEventPublisher.Publish(CustomerSyncRequested { Kind = Created | Updated, snapshot })`. This stages an outbox row.
+4. `IIntegrationEventPublisher.Publish(CustomerSyncRequested.From(Created | Updated, customer))`. This stages an outbox row in the `OutboxMessages` table.
 5. `IUnitOfWork.CommitAsync()` calls `SaveChanges` once. EF Core wraps one `SaveChanges` in a single database transaction ([EF Core docs: Transactions](https://learn.microsoft.com/ef/core/saving/transactions)).
 
 **Why an outbox satisfies "publishing is part of the unit of work".** The brief asks for two things at once:
@@ -87,9 +89,9 @@ Sending HTTP inside the transaction would break both: a remote call cannot be ro
 
 | Failure | Result |
 |---|---|
-| A deny rule matches | Nothing written. 200 with `status: "Denied"` and reason codes. |
+| A deny rule matches | Nothing written. 200 with `"status": "Denied"` and reason codes. |
 | Database error during commit | Transaction rolls back: no customer, no application, no outbox row, so no event. API returns 500 ProblemDetails. |
-| Two concurrent *first* submissions with the same SSN | The unique index on `Customers.Ssn` rejects the second insert with PostgreSQL error `23505`. Infrastructure translates it to `DuplicateCustomerException`, and the API returns 409. Resubmitting goes through the update path. |
+| Two concurrent *first* submissions with the same SSN | The unique index on `Customers.Ssn` rejects the second insert with PostgreSQL error `23505`. `LoanFlowDbContext.CommitAsync` translates it to `DuplicateCustomerException`, and the API returns 409. Resubmitting goes through the update path. |
 | External service down | Data is already committed. The outbox row stays pending and the worker retries. |
 | Worker crashes after the mock answered but before marking the row | The row is sent again. The mock upserts by `customerId`, so the retry is harmless. |
 
@@ -100,16 +102,16 @@ The database backs two invariants: unique `Customers.Ssn` and unique `Applicatio
 - `OutboxProcessor` is a `BackgroundService` inside the API process.
   - Every 2 s (`Outbox:PollIntervalSeconds`), it calls `ProcessPendingAsync()`.
   - That method reads pending rows ordered by their **identity key** (a monotonic `bigint`, not a timestamp) and runs `SyncCustomerWithExternalService` for each one.
-  - `Outbox:Enabled=false` turns the loop off. Endpoint tests set it, and outbox tests call `ProcessPendingAsync()` directly, with no sleeps.
+  - `Outbox:Enabled=false` turns the loop off (default `true`). Endpoint tests set it, and outbox tests call `ProcessPendingAsync()` directly, with no sleeps.
 - `Created` is sent as `POST /customers` and `Updated` as `PUT /customers/{customerId}`.
 - The payload is the full snapshot: customer data, SSN included, plus `application: { id, requestedAmount }`. The brief asks to send "the same data". Sending the SSN in the clear to a local mock is an accepted demo risk.
 - On success, `ProcessedAt` is set as a UTC `timestamptz`.
 - On failure, `Attempts` increases, `LastError` is saved, and the batch **stops**, so an update is never delivered before its create. The next poll retries.
 - Delivery is **at least once**. The mock is idempotent by `customerId`, and our `customerId` is the external id, so we never store an id from the mock.
 - `external-mock`:
-  - Keeps records in memory and logs method, path and `customerId` only, never the SSN.
+  - Keeps records in memory and logs method, path, `customerId` and status only, never the SSN.
   - Exposes `GET /customers` for the demo.
-  - Exposes `POST /_admin/fail-next/{n}` to simulate an outage and show the retries.
+  - Exposes `POST /_admin/fail-next/{n}` to answer the next `n` customer writes with 503, which shows the retries.
 
 ## 5. Trade-offs (left out on purpose)
 
@@ -121,9 +123,26 @@ The database backs two invariants: unique `Customers.Ssn` and unique `Applicatio
 | Max attempts and dead-letter | A row that keeps failing blocks the queue. The mock only fails when asked to, and `LastError` stays visible. | Real traffic against a partner that can return permanent 4xx errors. |
 | `FOR UPDATE SKIP LOCKED` in the outbox | A single API instance runs a single worker, so rows are never claimed twice. | More than one API instance. |
 | Optimistic concurrency on the update path | Two simultaneous submissions for the same returning customer: the last write wins. | Real concurrent edits (an `xmin` concurrency token is one line). |
-| Mock persistence | If the mock restarts, it loses its data, and a later `PUT` upserts an unknown id. A real service would return 404 and need a re-create. | A real partner integration. |
+| Mock persistence | The mock keeps records in memory only. If it restarts, it loses its data, and a later `PUT` upserts an unknown id. A real service would return 404 and need a re-create. | A real partner integration. |
 | API container healthcheck | The chiseled runtime image has no shell or curl. `web` only calls the API on submit. | Orchestrators that need readiness probes. |
-| SSN encryption at rest | Out of scope for a local demo. The SSN is masked in our logs and never put in URLs. | Before any real data. |
+| SSN encryption at rest | The SSN is stored unencrypted, which is acceptable for test data in a local demo. The SSN is kept out of our logs (masked where printed) and never put in URLs. | Before any real data. |
 | Persisting denied applications | Not required. Deny reasons are returned and logged. | Audit or analytics requirements. |
 | Auth, CI | Auth is excluded by the brief. Docker Compose is included because it reduces "run everything, database included" to one command for the reviewer. | Shared environments. |
 | Frontend tests | The brief asks for rule engine, returning customer and endpoint coverage. The UI is checked in the video. | The UI grows beyond one form. |
+
+## 6. Design patterns
+
+Each pattern is here because a requirement needs it.
+
+| Pattern | Where | Why | Rejected alternative |
+|---|---|---|---|
+| Strategy | `IDenyRule` implementations run by `RuleEngine` | A new rule is a new class plus one DI line. Existing rules and the engine stay untouched. | `if`/`else` chain in the use case or the controller |
+| Aggregate | `Customer` owns its `LoanApplication` | One application per customer. Both change and save together. | Two independent entities with their own repositories |
+| Value object | `Ssn`, `UsState`, `Address` | Validated once at construction. An invalid SSN or state cannot get past the use case. | Raw strings validated in the controller |
+| Repository | `ICustomerRepository` → `EfCustomerRepository` | The database is replaceable. The use case loads a customer by SSN without knowing EF Core. | Use case calls `DbContext` directly |
+| Unit of work | `IUnitOfWork.CommitAsync()` → one `SaveChanges` | Customer, application and outbox row commit in one transaction. | `BeginTransaction` in the use case; one save per repository |
+| Transactional outbox | `OutboxEventPublisher` + `OutboxProcessor` | The event is stored atomically with the data and sent after commit, at least once, in order. | HTTP call inside the request; a message broker (§5) |
+| Typed `HttpClient` | `ExternalCustomerHttpClient` behind `IExternalCustomerService` | HTTP is replaceable and faked in outbox tests. `IHttpClientFactory` manages the handlers. | `new HttpClient()` per call; Refit |
+| Exception handler | `ApiExceptionHandler` (`IExceptionHandler`) | The controller only maps. One place translates exceptions: `ArgumentException` with a `ParamName` → 400 ValidationProblemDetails, `DuplicateCustomerException` → 409, anything else → 500 without internal detail. | `try`/`catch` in the controller |
+
+Left out on purpose: a mediator (one controller calls one use case; a direct call is easier to follow), `Result<T>` wrappers (`Decision` and the submission result types already model the outcomes), strongly-typed IDs, domain-event dispatch (the use case publishes its one integration event explicitly) and a generic `IRepository<T>`.
