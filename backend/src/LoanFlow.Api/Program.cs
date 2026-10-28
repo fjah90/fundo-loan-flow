@@ -28,6 +28,17 @@ builder.Services.AddSingleton<IDenyRule, NewYorkStateRule>();
 builder.Services.AddSingleton<IDenyRule, BlacklistedSsnRule>();
 builder.Services.AddScoped<RuleEngine>();
 builder.Services.AddScoped<SubmitLoanApplication>();
+builder.Services.AddScoped<SyncCustomerWithExternalService>();
+builder.Services.AddHttpClient<IExternalCustomerService, ExternalCustomerHttpClient>(c =>
+{
+    c.BaseAddress = new Uri(builder.Configuration["ExternalService:BaseUrl"] ?? "http://localhost:4000/");
+    c.Timeout = TimeSpan.FromSeconds(10);
+});
+if (builder.Configuration.GetValue("Outbox:Enabled", true))
+    builder.Services.AddHostedService(sp => new OutboxProcessor(
+        sp.GetRequiredService<IServiceScopeFactory>(),
+        sp.GetRequiredService<ILogger<OutboxProcessor>>(),
+        TimeSpan.FromSeconds(builder.Configuration.GetValue("Outbox:PollIntervalSeconds", 2))));
 
 // Every automatic 400 goes through ProblemDetailsFactory with clean camelCase field keys (AR-48.2).
 builder.Services.AddControllers()
