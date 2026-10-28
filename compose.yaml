@@ -11,7 +11,7 @@ services:
       # PG 18 moved PGDATA under a versioned dir: mount the parent, not /data
       - loanflow-pgdata:/var/lib/postgresql
     ports:
-      - "5433:5432"
+      - "5442:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "loanflow", "-d", "loanflow"]
       interval: 5s
@@ -37,12 +37,12 @@ services:
     environment:
       API_URL: http://api:8080
     ports:
-      - "3000:3000"
+      - "3080:3000"
 
   external-mock:
     build: ./external-mock
     ports:
-      - "4000:4000"
+      - "4080:4000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:4000/customers').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
