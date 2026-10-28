@@ -21,6 +21,8 @@ public sealed class PostgresFixture : IAsyncLifetime
         await db.Database.EnsureCreatedAsync();
     }
 
+    public string ConnectionString => _container.GetConnectionString();
+
     public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     public LoanFlowDbContext CreateContext(params IInterceptor[] interceptors)
