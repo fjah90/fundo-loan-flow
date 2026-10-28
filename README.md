@@ -122,7 +122,7 @@ pnpm --dir web build
 - outbox order, retry and the `POST`/`PUT` calls to the mock (`OutboxProcessorTests`, `ExternalCustomerHttpClientTests`);
 - SSN redaction in logs (`SsnRedactionTests`).
 
-The frontend has lint and build checks only (SC-07).
+The frontend has lint and build checks only.
 
 ## Test data
 
@@ -156,31 +156,31 @@ The API outbox retries every 2 seconds, in order. The customer shows up in `GET 
 
 ## Assumptions
 
-Choices the brief left open. The ID in parentheses is the record of each one.
+Choices the brief left open. UI IDs in parentheses point to the decision table in `web/DESIGN.md` §10.
 
 **Rules**
-- The rule engine runs every rule and returns every denial reason, so a user sees them all at once. (AR-05)
-- Rules run before the customer lookup. A denied submission writes nothing, and a returning customer who is denied keeps the last approved data. (AR-07, AR-08)
-- The blacklist lives in `appsettings.json` (`Blacklist:Ssns`) behind `ISsnBlacklist`. The API refuses to start if it is empty. (AR-06, AR-39)
-- Denial codes are `STATE_NOT_SERVED` and `NOT_ELIGIBLE`. `NOT_ELIGIBLE` is neutral on purpose, but anyone who probes SSNs can still learn that one is blacklisted. Rate limiting is out of scope. (AR-09, AR-34, UI-11)
+- The rule engine runs every rule and returns every denial reason, so a user sees them all at once.
+- Rules run before the customer lookup. A denied submission writes nothing, and a returning customer who is denied keeps the last approved data.
+- The blacklist lives in `appsettings.json` (`Blacklist:Ssns`) behind `ISsnBlacklist`. The API refuses to start if it is empty.
+- Denial codes are `STATE_NOT_SERVED` and `NOT_ELIGIBLE`. `NOT_ELIGIBLE` is neutral on purpose, but anyone who probes SSNs can still learn that one is blacklisted. Rate limiting is out of scope. (UI-11)
 
 **Data and transactions**
-- One customer owns one application. A repeated SSN updates both. Unique indexes on `Customers.Ssn` and `Applications.CustomerId` enforce it, and a race on the first submission returns 409. (AR-02, AR-11, AR-40)
-- The SSN accepts `123-45-6789` or 9 digits, is stored as 9 digits, and is masked in `ToString()`. Logs never include it. (AR-26, AR-21, AR-44)
-- The amount is greater than 0 (AR-29), stored as `numeric(18,2)` with at most 2 decimals (AR-35). ZIP is 5 digits or ZIP+4 (AR-27). Ids are Guid v7. (AR-28)
-- The schema comes from `EnsureCreated`, not migrations. (AR-20)
-- The 5 free-text fields (first name, last name, street, city, company) accept up to 100 characters and reject the NUL character with 400. (AR-43, AR-48)
+- One customer owns one application. A repeated SSN updates both. Unique indexes on `Customers.Ssn` and `Applications.CustomerId` enforce it, and a race on the first submission returns 409.
+- The SSN accepts `123-45-6789` or 9 digits, is stored as 9 digits, and is masked in `ToString()`. Logs never include it.
+- The amount is greater than 0, stored as `numeric(18,2)` with at most 2 decimals. ZIP is 5 digits or ZIP+4. Ids are Guid v7.
+- The schema comes from `EnsureCreated`, not migrations.
+- The 5 free-text fields (first name, last name, street, city, company) accept up to 100 characters and reject the NUL character with 400.
 
 **Outbox and external service**
-- The customer, the application and the outbox row are saved in one `SaveChanges`. A background worker polls every 2 seconds and sends the events later. (AR-10, AR-13)
-- Delivery is at least once, in outbox `Id` order, and the mock upserts by `customerId`. (AR-14, AR-15)
-- The external contract is `POST /customers` to create and `PUT /customers/{customerId}` to update, both with the full snapshot. (AR-16)
-- The SSN travels in clear text to the mock, because the brief asks for the same data. This is accepted for a demo. (AR-17)
-- The mock adds `GET /customers` and `POST /_admin/fail-next/{n}` to show received data and retries. (AR-22)
+- The customer, the application and the outbox row are saved in one `SaveChanges`. A background worker polls every 2 seconds and sends the events later.
+- Delivery is at least once, in outbox `Id` order, and the mock upserts by `customerId`.
+- The external contract is `POST /customers` to create and `PUT /customers/{customerId}` to update, both with the full snapshot.
+- The SSN travels in clear text to the mock, because the brief asks for the same data. This is accepted for a demo.
+- The mock adds `GET /customers` and `POST /_admin/fail-next/{n}` to show received data and retries.
 
 **API**
-- A denial returns 200 with `status: "Denied"`. Invalid input returns 400 ProblemDetails with errors keyed by field name. A duplicate customer returns 409. (AR-12, AR-42, AR-46)
-- The API container has no healthcheck, because the chiseled image has no shell. (AR-23)
+- A denial returns 200 with `status: "Denied"`. Invalid input returns 400 ProblemDetails with errors keyed by field name. A duplicate customer returns 409.
+- The API container has no healthcheck, because the chiseled image has no shell.
 
 **UI**
 - Neutral look, light mode only, system font, plain CSS, English copy. (UI-01, UI-02, UI-04, UI-05, UI-14)
@@ -190,19 +190,19 @@ Choices the brief left open. The ID in parentheses is the record of each one.
 - Field errors show next to the field and in a summary with `role="alert"`. (UI-12)
 
 **Stack and scope**
-- Docker Compose is the main path, and a no-Docker path is documented. There is no auth, CI or frontend test suite. (SC-06, SC-13, SC-07)
-- .NET 10 LTS (.NET 11 is still a release candidate), PostgreSQL 18 and Node 26. Tests use Testcontainers PostgreSQL, never the in-memory provider. (ST-02, ST-03, ST-14, ST-04)
-- TypeScript 6.0.3. TypeScript 7 compiles, but `typescript-eslint` does not support it yet, so lint fails. (ST-13)
-- Compose maps host ports 5442, 5080, 3080 and 4080 to avoid common local conflicts. (AR-57)
+- Docker Compose is the main path, and a no-Docker path is documented. There is no auth, CI or frontend test suite.
+- .NET 10 LTS (.NET 11 is still a release candidate), PostgreSQL 18 and Node 26. Tests use Testcontainers PostgreSQL, never the in-memory provider.
+- TypeScript 6.0.3. TypeScript 7 compiles, but `typescript-eslint` does not support it yet, so lint fails.
+- Compose maps host ports 5442, 5080, 3080 and 4080 to avoid common local conflicts.
 
 ## Not resolved
 
-- Outbox retries have no limit and no dead-letter, so a row that always fails blocks the queue behind it. (AR-18, FUT-02)
-- Concurrent updates of one returning customer end with the last write. There is no concurrency token. (AR-24, FUT-06)
-- Migrations and `FOR UPDATE SKIP LOCKED` are missing, so the outbox is safe for one API instance only. (FUT-03)
-- The SSN is stored unencrypted. (FUT-04)
-- The form has no automated browser test. The five flows were checked by hand. (FUT-05)
-- The tests need a local .NET SDK. Running them inside a container requires `TESTCONTAINERS_HOST_OVERRIDE`. (FUT-07)
+- Outbox retries have no limit and no dead-letter, so a row that always fails blocks the queue behind it.
+- Concurrent updates of one returning customer end with the last write. There is no concurrency token.
+- Migrations and `FOR UPDATE SKIP LOCKED` are missing, so the outbox is safe for one API instance only.
+- The SSN is stored unencrypted.
+- The form has no automated browser test. The five flows were checked by hand.
+- The tests need a local .NET SDK. Running them inside a container requires `TESTCONTAINERS_HOST_OVERRIDE`.
 - Some 400 messages name the internal field. A zero amount returns `requestedAmount ('0') must be a non-negative and non-zero value.`, and the form shows it as is.
 - Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` when it connects from the chiseled image. It has no effect.
 - The outbox query is logged every 2 seconds at Information level (`Microsoft.EntityFrameworkCore.Database.Command`), which fills `docker compose logs`.
