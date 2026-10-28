@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:18.6-alpine3.24
+    # terse drops DETAIL, which would print the duplicate SSN on a unique violation
+    command: ["postgres", "-c", "log_error_verbosity=terse"]
+    environment:
+      POSTGRES_USER: loanflow
+      POSTGRES_PASSWORD: loanflow
+      POSTGRES_DB: loanflow
+    volumes:
+      # PG 18 moved PGDATA under a versioned dir: mount the parent, not /data
+      - loanflow-pgdata:/var/lib/postgresql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "loanflow", "-d", "loanflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__LoanFlow: Host=db;Port=5432;Database=loanflow;Username=loanflow;Password=loanflow
+      ExternalService__BaseUrl: http://external-mock:4000/
+    ports:
+      - "5080:8080"
+
+  web:
+    build: ./web
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      API_URL: http://api:8080
+    ports:
+      - "3000:3000"
+
+  external-mock:
+    build: ./external-mock
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/customers').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  loanflow-pgdata:
+    name: loanflow-pgdata
