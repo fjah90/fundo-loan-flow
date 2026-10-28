@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
-import { CircleAlert } from "lucide-react";
+import { ChevronDown, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, inputClass } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { submitLoanApplication, type FieldName, type FormState } from "./actions";
 import { US_STATES } from "./us-states";
 
@@ -153,14 +154,20 @@ export function LoanForm() {
               <Input type="text" maxLength={100} autoComplete="address-level2" {...control("city")} />
             </Field>
             <Field name="state" error={state.fieldErrors.state}>
-              <select className={inputClass} autoComplete="address-level1" {...control("state")}>
-                <option value="">Select a state</option>
-                {US_STATES.map((s) => (
-                  <option key={s.code} value={s.code}>
-                    {s.code} — {s.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select className={cn(inputClass, "appearance-none pr-10")} autoComplete="address-level1" {...control("state")}>
+                  <option value="">Select a state</option>
+                  {US_STATES.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.code} — {s.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+                />
+              </div>
             </Field>
             <Field name="zipCode" error={state.fieldErrors.zipCode}>
               <Input

@@ -62,6 +62,12 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+
+  /* The native option list ignores the select's transparent background; theme it explicitly. */
+  option {
+    background-color: var(--card);
+    color: var(--foreground);
+  }
 }
 
 /* Brand motifs. */
