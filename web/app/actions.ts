@@ -51,7 +51,7 @@ async function send(body: string): Promise<Outcome> {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body,
       cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(70_000), // Render free tier wakes the API in 25-60 s (UI-28)
     });
     const json: unknown = await res.json();
     if (!isRecord(json)) return { fieldErrors: {}, formError: GENERIC_ERROR };

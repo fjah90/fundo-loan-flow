@@ -116,6 +116,7 @@ public class CustomerTests
 
         // Assert
         Assert.Equal("requestedAmount", ex.ParamName);
+        Assert.StartsWith("Amount must be greater than 0.", ex.Message);
     }
 
     [Fact]

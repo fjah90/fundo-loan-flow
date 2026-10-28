@@ -17,7 +17,8 @@ public sealed class LoanApplication
 
     internal void ChangeAmount(decimal requestedAmount)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(requestedAmount, "requestedAmount");
+        if (requestedAmount <= 0)
+            throw new ArgumentOutOfRangeException("requestedAmount", requestedAmount, "Amount must be greater than 0.");
         if (decimal.Round(requestedAmount, 2) != requestedAmount)
             throw new ArgumentOutOfRangeException("requestedAmount", requestedAmount, "Amount allows at most 2 decimals.");
         if (requestedAmount >= 10_000_000_000_000_000m)
