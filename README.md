@@ -144,7 +144,7 @@ A denied submission writes nothing. The blacklist denial returns the neutral cod
 curl http://localhost:4080/customers
 ```
 
-In PowerShell, use `curl.exe`. The first approval appears as a created customer, and the returning one updates the same record. Without Docker, use port 4000.
+In PowerShell, use `curl.exe`. After the first approval, `GET /customers` lists the customer. After a returning submission, the same record shows the new amount. Without Docker, use port 4000.
 
 To simulate an outage, make the mock answer 503 to the next 3 requests, then submit an application:
 
@@ -169,6 +169,7 @@ Choices the brief left open. The ID in parentheses is the record of each one.
 - The SSN accepts `123-45-6789` or 9 digits, is stored as 9 digits, and is masked in `ToString()`. Logs never include it. (AR-26, AR-21, AR-44)
 - The amount is greater than 0 (AR-29), stored as `numeric(18,2)` with at most 2 decimals (AR-35). ZIP is 5 digits or ZIP+4 (AR-27). Ids are Guid v7. (AR-28)
 - The schema comes from `EnsureCreated`, not migrations. (AR-20)
+- The 5 free-text fields (first name, last name, street, city, company) accept up to 100 characters and reject the NUL character with 400. (AR-43, AR-48)
 
 **Outbox and external service**
 - The customer, the application and the outbox row are saved in one `SaveChanges`. A background worker polls every 2 seconds and sends the events later. (AR-10, AR-13)

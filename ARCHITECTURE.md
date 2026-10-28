@@ -64,7 +64,7 @@ public interface IDenyRule
 - `RuleEngine` receives `IEnumerable<IDenyRule>` from DI, runs **all** rules, and returns `Decision.Approved` or `Decision.Denied(reasons)`.
 - Rules:
   - `NewYorkStateRule` returns `STATE_NOT_SERVED`.
-  - `BlacklistedSsnRule` returns `NOT_ELIGIBLE`, using `ISsnBlacklist`. The neutral code means neither the API nor the UI reveals that an SSN is flagged.
+  - `BlacklistedSsnRule` returns `NOT_ELIGIBLE`, using `ISsnBlacklist`. The neutral code names neither the blacklist nor the SSN, but probing SSNs can still reveal that one is blocked; rate limiting is out of scope.
 - **Adding a rule:** write one class that implements `IDenyRule` and register it with one line in DI. No existing rule changes, and neither does the engine.
 - Rules run before the customer lookup. The blacklist is the "check the SSN" step from the brief.
 - **Denied writes nothing.** A returning customer who is denied later keeps the last approved data, and nothing is sent to the external service.
@@ -131,8 +131,6 @@ The database backs two invariants: unique `Customers.Ssn` and unique `Applicatio
 | Frontend tests | The brief asks for rule engine, returning customer and endpoint coverage. The UI is checked in the video. | The UI grows beyond one form. |
 
 ## 6. Design patterns
-
-Each pattern is here because a requirement needs it.
 
 | Pattern | Where | Why | Rejected alternative |
 |---|---|---|---|
