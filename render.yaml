@@ -1,0 +1,46 @@
+# Render Blueprint for a free demo deployment. Local runs use compose.yaml.
+# Free web services can't receive private network traffic, so the services
+# reach each other through their public onrender.com URLs (set in the dashboard).
+databases:
+  - name: loanflow-db
+    databaseName: loanflow
+    user: loanflow
+    plan: free
+    region: virginia
+
+services:
+  - type: web
+    name: loanflow-mock
+    runtime: docker
+    rootDir: external-mock
+    plan: free
+    region: virginia
+
+  - type: web
+    name: loanflow-api
+    runtime: docker
+    rootDir: backend
+    plan: free
+    region: virginia
+    envVars:
+      - key: PORT
+        value: "8080"
+      # Npgsql reads PGPASSWORD, so ConnectionStrings__LoanFlow carries no password
+      - key: PGPASSWORD
+        fromDatabase:
+          name: loanflow-db
+          property: password
+      - key: ConnectionStrings__LoanFlow
+        sync: false
+      - key: ExternalService__BaseUrl
+        sync: false
+
+  - type: web
+    name: loanflow-web
+    runtime: docker
+    rootDir: web
+    plan: free
+    region: virginia
+    envVars:
+      - key: API_URL
+        sync: false
