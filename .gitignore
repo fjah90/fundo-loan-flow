@@ -1,0 +1,9 @@
+bin/
+obj/
+.next/
+node_modules/
+.env*.local
+TestResults/
+*.user
+.vs/
+.DS_Store
