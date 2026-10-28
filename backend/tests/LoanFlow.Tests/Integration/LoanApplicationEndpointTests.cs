@@ -3,10 +3,12 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using LoanFlow.Application;
+using LoanFlow.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace LoanFlow.Tests.Integration;
@@ -257,6 +259,37 @@ public sealed class LoanApplicationEndpointTests(PostgresFixture postgres) : IAs
     private sealed class ThrowingUnitOfWork(Exception exception) : IUnitOfWork
     {
         public Task CommitAsync(CancellationToken ct = default) => throw exception;
+    }
+
+    [Fact]
+    public void Host_OutboxDisabled_DoesNotRegisterOutboxProcessor()
+    {
+        // Arrange
+        var hostedServices = _factory.Services.GetServices<IHostedService>();
+
+        // Act
+        var processors = hostedServices.OfType<OutboxProcessor>();
+
+        // Assert
+        Assert.Empty(processors);
+    }
+
+    [Fact]
+    public async Task Host_OutboxEnabled_RegistersOneOutboxProcessor()
+    {
+        // Arrange
+        await using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(b =>
+            {
+                b.UseSetting("ConnectionStrings:LoanFlow", postgres.ConnectionString);
+                b.UseSetting("Outbox:Enabled", "true");
+            });
+
+        // Act
+        var processors = factory.Services.GetServices<IHostedService>().OfType<OutboxProcessor>();
+
+        // Assert
+        Assert.Single(processors);
     }
 
     private static async Task AssertValidationErrorAsync(HttpResponseMessage response, string field)
