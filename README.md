@@ -7,7 +7,7 @@ A background worker then syncs approved applications to a mock external service 
 
 ## Stack
 
-.NET 10, EF Core 10 + Npgsql, PostgreSQL 18, xUnit v3 + Testcontainers, Next.js 16 + React 19, Node 26, Docker Compose.
+.NET 10, EF Core 10 + Npgsql, PostgreSQL 18, xUnit v3 + Testcontainers, Next.js 16 + React 19 + Tailwind CSS 4, Node 26, Docker Compose.
 
 ## Repository layout
 
@@ -183,7 +183,8 @@ Choices the brief left open. UI IDs in parentheses point to the decision table i
 - The API container has no healthcheck, because the chiseled image has no shell.
 
 **UI**
-- Neutral look, light mode only, system font, plain CSS, English copy. (UI-01, UI-02, UI-04, UI-05, UI-14)
+- Own visual identity with no Fundo branding: light and dark themes that follow the system, Lato, Tailwind CSS v4 with three shadcn-style components, CSS-only motion that turns off with reduced motion, English copy. (UI-01, UI-14, UI-22 to UI-27)
+- Lato comes from `next/font/google`, so the web build downloads it and `docker compose up --build` needs network access. (UI-24)
 - State is a native `<select>` with the 50 states plus DC. (UI-07)
 - The server action calls the API using `API_URL`, so the browser needs no CORS and no API address. (UI-16, UI-17)
 - Result URLs carry ids and codes only, never personal data. (UI-15, UI-18)

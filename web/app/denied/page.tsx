@@ -1,4 +1,7 @@
+import { CircleAlert } from "lucide-react";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { PageBand, PageBody } from "../page-band";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -15,19 +18,27 @@ export default async function DeniedPage({ searchParams }: { searchParams: Searc
   const messages = known.length > 0 ? known.map((c) => MESSAGES[c]) : [FALLBACK];
 
   return (
-    <section className="card result result-denied">
-      <h1>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        Application not approved
-      </h1>
-      {messages.map((m) => (
-        <p key={m}>{m}</p>
-      ))}
-      <Link href="/">Back to the form</Link>
-    </section>
+    <>
+      <PageBand
+        title="Application not approved"
+        icon={
+          <span className="grid size-10 shrink-0 place-items-center rounded-full border border-destructive text-destructive">
+            <CircleAlert className="size-5" aria-hidden="true" />
+          </span>
+        }
+      />
+      <PageBody>
+        <section className="flex flex-col items-start gap-4 rounded-xl border border-l-2 border-l-destructive bg-card p-6 sm:p-8">
+          {messages.map((m) => (
+            <p key={m} className="max-w-[65ch]">
+              {m}
+            </p>
+          ))}
+          <Link href="/" className={buttonVariants()}>
+            Back to the form
+          </Link>
+        </section>
+      </PageBody>
+    </>
   );
 }

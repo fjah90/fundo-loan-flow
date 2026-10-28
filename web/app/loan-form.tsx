@@ -1,6 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
+import { CircleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input, inputClass } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { submitLoanApplication, type FieldName, type FormState } from "./actions";
 import { US_STATES } from "./us-states";
 
@@ -18,6 +22,21 @@ const LABELS: Record<FieldName, string> = {
   requestedAmount: "Loan amount",
 };
 
+const FIELDSET = "m-0 flex min-w-0 flex-col gap-4 border-t p-0";
+const LEGEND = "mb-4 flex items-center gap-3 p-0 text-lg font-bold";
+
+// Numbered node that marks each form group as a step.
+function Node({ n }: { n: number }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-7 shrink-0 place-items-center rounded-full border border-primary text-sm font-bold text-primary tabular-nums"
+    >
+      {n}
+    </span>
+  );
+}
+
 const ERROR_ORDER = Object.keys(LABELS) as FieldName[];
 
 type FieldProps = {
@@ -29,16 +48,16 @@ type FieldProps = {
 
 function Field({ name, help, error, children }: FieldProps) {
   return (
-    <div className="field">
-      <label htmlFor={name}>{LABELS[name]}</label>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <Label htmlFor={name}>{LABELS[name]}</Label>
       {children}
       {help && (
-        <p className="help" id={`${name}-help`}>
+        <p className="text-sm text-muted-foreground" id={`${name}-help`}>
           {help}
         </p>
       )}
       {error && (
-        <p className="field-error" id={`${name}-error`}>
+        <p className="text-sm text-destructive" id={`${name}-error`}>
           {error}
         </p>
       )}
@@ -72,20 +91,21 @@ export function LoanForm() {
   };
 
   return (
-    <div className="card">
+    <div className="rounded-xl border bg-card p-4 sm:p-8">
       {hasErrors && (
-        <div className="error-summary" role="alert" tabIndex={-1} ref={summaryRef}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          {state.formError && <p>{state.formError}</p>}
+        <div
+          className="mb-6 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 border-l-2 border-l-destructive bg-muted p-4 text-destructive"
+          role="alert"
+          tabIndex={-1}
+          ref={summaryRef}
+        >
+          <CircleAlert className="size-5" aria-hidden="true" />
+          {state.formError && <p className="col-start-2">{state.formError}</p>}
           {errorFields.length > 0 && (
-            <ul>
+            <ul className="col-start-2">
               {errorFields.map((f) => (
                 <li key={f}>
-                  <a href={`#${f}`}>
+                  <a href={`#${f}`} className="underline underline-offset-2">
                     {LABELS[f]}: {state.fieldErrors[f]}
                   </a>
                 </li>
@@ -95,19 +115,22 @@ export function LoanForm() {
         </div>
       )}
 
-      <form key={state.attempt} action={formAction}>
-        <fieldset>
-          <legend>Personal details</legend>
-          <div className="grid-2">
+      <form key={state.attempt} action={formAction} className="flex flex-col gap-8">
+        <fieldset className={FIELDSET}>
+          <legend className={LEGEND}>
+            <Node n={1} />
+            Personal details
+          </legend>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field name="firstName" error={state.fieldErrors.firstName}>
-              <input type="text" maxLength={100} autoComplete="given-name" {...control("firstName")} />
+              <Input type="text" maxLength={100} autoComplete="given-name" {...control("firstName")} />
             </Field>
             <Field name="lastName" error={state.fieldErrors.lastName}>
-              <input type="text" maxLength={100} autoComplete="family-name" {...control("lastName")} />
+              <Input type="text" maxLength={100} autoComplete="family-name" {...control("lastName")} />
             </Field>
           </div>
           <Field name="ssn" help="Format: 123-45-6789" error={state.fieldErrors.ssn}>
-            <input
+            <Input
               type="text"
               inputMode="numeric"
               autoComplete="off"
@@ -117,17 +140,20 @@ export function LoanForm() {
           </Field>
         </fieldset>
 
-        <fieldset>
-          <legend>Address</legend>
+        <fieldset className={FIELDSET}>
+          <legend className={LEGEND}>
+            <Node n={2} />
+            Address
+          </legend>
           <Field name="street" error={state.fieldErrors.street}>
-            <input type="text" maxLength={100} autoComplete="address-line1" {...control("street")} />
+            <Input type="text" maxLength={100} autoComplete="address-line1" {...control("street")} />
           </Field>
-          <div className="grid-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field name="city" error={state.fieldErrors.city}>
-              <input type="text" maxLength={100} autoComplete="address-level2" {...control("city")} />
+              <Input type="text" maxLength={100} autoComplete="address-level2" {...control("city")} />
             </Field>
             <Field name="state" error={state.fieldErrors.state}>
-              <select autoComplete="address-level1" {...control("state")}>
+              <select className={inputClass} autoComplete="address-level1" {...control("state")}>
                 <option value="">Select a state</option>
                 {US_STATES.map((s) => (
                   <option key={s.code} value={s.code}>
@@ -137,7 +163,7 @@ export function LoanForm() {
               </select>
             </Field>
             <Field name="zipCode" error={state.fieldErrors.zipCode}>
-              <input
+              <Input
                 type="text"
                 inputMode="numeric"
                 autoComplete="postal-code"
@@ -148,21 +174,24 @@ export function LoanForm() {
           </div>
         </fieldset>
 
-        <fieldset>
-          <legend>Loan</legend>
+        <fieldset className={FIELDSET}>
+          <legend className={LEGEND}>
+            <Node n={3} />
+            Loan
+          </legend>
           <Field name="company" error={state.fieldErrors.company}>
-            <input type="text" maxLength={100} autoComplete="organization" {...control("company")} />
+            <Input type="text" maxLength={100} autoComplete="organization" {...control("company")} />
           </Field>
           <Field
             name="requestedAmount"
             help="Any amount greater than $0, up to 2 decimals."
             error={state.fieldErrors.requestedAmount}
           >
-            <div className="amount">
-              <span className="prefix" aria-hidden="true">
+            <div className="flex items-center gap-2 tabular-nums">
+              <span className="text-muted-foreground" aria-hidden="true">
                 $
               </span>
-              <input
+              <Input
                 type="text"
                 inputMode="decimal"
                 pattern="\d+(\.\d{1,2})?"
@@ -172,9 +201,9 @@ export function LoanForm() {
           </Field>
         </fieldset>
 
-        <button type="submit" className="button-primary" disabled={isPending}>
+        <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
           {isPending ? "Submitting…" : "Submit application"}
-        </button>
+        </Button>
       </form>
     </div>
   );

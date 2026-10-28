@@ -1,5 +1,8 @@
+import { CircleCheck } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import { PageBand, PageBody } from "../page-band";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -12,19 +15,26 @@ export default async function ApprovedPage({ searchParams }: { searchParams: Sea
   const returning = first(params.returning) === "true";
 
   return (
-    <section className="card result result-approved">
-      <h1>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M8 12l3 3 5-6" />
-        </svg>
-        Application approved
-      </h1>
-      <p>
-        Your application ID is <strong>{applicationId}</strong>.
-      </p>
-      <p>{returning ? "We updated your existing application." : "This is a new application."}</p>
-      <Link href="/">Submit another application</Link>
-    </section>
+    <>
+      <PageBand
+        title="Application approved"
+        icon={
+          <span className="grid size-10 shrink-0 place-items-center rounded-full border border-success text-success">
+            <CircleCheck className="size-5" aria-hidden="true" />
+          </span>
+        }
+      />
+      <PageBody>
+        <section className="flex flex-col items-start gap-4 rounded-xl border border-l-2 border-l-success bg-card p-6 sm:p-8">
+          <p className="max-w-[65ch] break-words">
+            Your application ID is <strong>{applicationId}</strong>.
+          </p>
+          <p className="max-w-[65ch]">{returning ? "We updated your existing application." : "This is a new application."}</p>
+          <Link href="/" className={buttonVariants()}>
+            Submit another application
+          </Link>
+        </section>
+      </PageBody>
+    </>
   );
 }
