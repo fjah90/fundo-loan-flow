@@ -48,6 +48,7 @@ public sealed class OutboxProcessorTests(PostgresFixture postgres) : IAsyncLifet
         var firstId = Guid.NewGuid();
         var secondId = Guid.NewGuid();
         await SeedAsync(Event(CustomerSyncKind.Created, firstId), Event(CustomerSyncKind.Created, secondId));
+        await MoveLowestIdToHeapEndAsync();
         var external = new RecordingExternal(failOnCall: 1);
         await using var provider = BuildProvider(external);
         var processor = CreateProcessor(provider);
@@ -67,11 +68,39 @@ public sealed class OutboxProcessorTests(PostgresFixture postgres) : IAsyncLifet
     }
 
     [Fact]
+    public async Task ProcessPendingAsync_FailureThenRetry_DeliversFailedRowThenNextInIdOrder()
+    {
+        // Arrange
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        await SeedAsync(Event(CustomerSyncKind.Created, firstId), Event(CustomerSyncKind.Created, secondId));
+        await MoveLowestIdToHeapEndAsync();
+        var external = new RecordingExternal(failOnCall: 1);
+        await using var provider = BuildProvider(external);
+        var processor = CreateProcessor(provider);
+
+        // Act
+        await processor.ProcessPendingAsync(TestContext.Current.CancellationToken);
+        var afterFirstPass = await ReadRowsAsync();
+        await processor.ProcessPendingAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal([("Create", firstId)], external.Calls.Take(1));
+        Assert.Null(afterFirstPass[0].ProcessedAt);
+        Assert.Equal(1, afterFirstPass[0].Attempts);
+        Assert.Null(afterFirstPass[1].ProcessedAt);
+        Assert.Equal([("Create", firstId), ("Create", firstId), ("Create", secondId)], external.Calls);
+        var rows = await ReadRowsAsync();
+        Assert.All(rows, row => Assert.NotNull(row.ProcessedAt));
+    }
+
+    [Fact]
     public async Task ProcessPendingAsync_DeliversInIdOrder_CreateBeforeUpdate()
     {
         // Arrange
         var customerId = Guid.NewGuid();
         await SeedAsync(Event(CustomerSyncKind.Created, customerId), Event(CustomerSyncKind.Updated, customerId));
+        await MoveLowestIdToHeapEndAsync();
         var external = new RecordingExternal();
         await using var provider = BuildProvider(external);
         var processor = CreateProcessor(provider);
@@ -124,6 +153,20 @@ public sealed class OutboxProcessorTests(PostgresFixture postgres) : IAsyncLifet
             });
             await db.SaveChangesAsync(TestContext.Current.CancellationToken); // one save per row keeps Id order
         }
+    }
+
+    // An UPDATE writes a new tuple version, so the lowest-Id row lands after the others in the heap.
+    // Without ORDER BY Id a sequential scan then returns rows out of Id order; the guard proves the premise.
+    private async Task MoveLowestIdToHeapEndAsync()
+    {
+        await using var db = postgres.CreateContext();
+        var ct = TestContext.Current.CancellationToken;
+        var lowestId = await db.OutboxMessages.MinAsync(m => m.Id, ct);
+        await db.OutboxMessages.Where(m => m.Id == lowestId)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.OccurredAt, DateTimeOffset.UtcNow), ct);
+
+        var physical = await db.OutboxMessages.AsNoTracking().Select(m => m.Id).ToListAsync(ct);
+        Assert.NotEqual(physical.Order().ToList(), physical);
     }
 
     private async Task<List<OutboxMessage>> ReadRowsAsync()
