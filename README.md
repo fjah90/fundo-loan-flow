@@ -1,9 +1,31 @@
 # Fundo Loan Flow
 
-**Video:** _link added after recording_
-
 A loan application form posts to a .NET API that runs a rule engine and stores the result in PostgreSQL with a transactional outbox.
 A background worker then syncs approved applications to a mock external service over HTTP.
+
+## Video walkthrough
+
+### ▶ [Watch in English](https://drive.google.com/file/d/1TSzEIbeOoAqKTmdfa--JvOyLR2uA6xAT/view) &nbsp;·&nbsp; ▶ [Ver en español](https://drive.google.com/file/d/1hDoc1pumCo9LJDmF4YDnLv4t1q1FS0HN/view)
+
+Both videos walk through the same five flows on the live demo below:
+
+1. **New customer approved.** The form is submitted with state `CA`, the approved page says it is a new application, and the customer appears in the external mock.
+2. **Returning customer.** The same SSN is submitted with a new amount while the mock is set to fail. The approved page says the existing application was updated, and the mock receives the new amount after the outbox retries.
+3. **Denied by state.** A `NY` address lands on the denied page with the state reason.
+4. **Denied by blacklist.** A blacklisted SSN lands on the denied page with a neutral reason that never mentions the blacklist.
+5. **Validation errors.** An invalid ZIP and SSN show errors next to each field without leaving the form.
+
+## Live demo
+
+Render free tier, deployed from [`render.yaml`](render.yaml).
+
+| Service | URL |
+|---|---|
+| Web form | https://loanflow-web.onrender.com |
+| API | https://loanflow-api.onrender.com (`POST /api/loan-applications`) |
+| External mock | https://loanflow-mock.onrender.com/customers |
+
+Free services sleep when idle, so the first request can take 25–60 s while they wake up. The mock keeps customers in memory and loses them on restart. Use the [test data](#test-data) below.
 
 ## Stack
 
