@@ -22,7 +22,7 @@ Render free tier, deployed from [`render.yaml`](render.yaml).
 | Service | URL |
 |---|---|
 | Web form | https://loanflow-web.onrender.com |
-| API | https://loanflow-api.onrender.com (`POST /api/loan-applications`) |
+| API | https://loanflow-api-lqzn.onrender.com (`POST /api/loan-applications`) |
 | External mock | https://loanflow-mock.onrender.com/customers |
 
 Free services sleep when idle, so the first request can take 25–60 s while they wake up. The mock keeps customers in memory and loses them on restart. Use the [test data](#test-data) below.
@@ -226,7 +226,6 @@ Choices the brief left open. UI IDs in parentheses point to the decision table i
 - The SSN is stored unencrypted.
 - The form has no automated browser test. The five flows were checked by hand.
 - The tests need a local .NET SDK. Running them inside a container requires `TESTCONTAINERS_HOST_OVERRIDE`.
-- Some 400 messages name the internal field. A zero amount returns `requestedAmount ('0') must be a non-negative and non-zero value.`, and the form shows it as is.
 - Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` when it connects from the chiseled image. It has no effect.
 - The outbox query is logged every 2 seconds at Information level (`Microsoft.EntityFrameworkCore.Database.Command`), which fills `docker compose logs`.
 
