@@ -3,16 +3,16 @@ using System.Text;
 
 namespace LoanFlow.Api;
 
-// NUL is rejected because Postgres cannot store it (AR-48.1).
 public sealed record LoanApplicationRequest(
-    [MaxLength(100), RegularExpression(@"^[^\u0000]*$")] string FirstName,
-    [MaxLength(100), RegularExpression(@"^[^\u0000]*$")] string LastName,
+    [FreeText] string FirstName,
+    [FreeText] string LastName,
     string Ssn,
-    [MaxLength(100), RegularExpression(@"^[^\u0000]*$")] string Street,
-    [MaxLength(100), RegularExpression(@"^[^\u0000]*$")] string City,
+    [FreeText] string Street,
+    [FreeText] string City,
     string State,
     string ZipCode,
-    [MaxLength(100), RegularExpression(@"^[^\u0000]*$")] string Company,
+    [FreeText] string Company,
+    // Nullable so a missing amount stays null and [Required] reports it under requestedAmount; a plain decimal would bind to 0.
     [Required] decimal? RequestedAmount)
 {
     // Omits Ssn so ToString() never prints it. The compiler-generated ToString() calls this.
