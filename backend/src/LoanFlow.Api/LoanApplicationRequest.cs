@@ -15,7 +15,7 @@ public sealed record LoanApplicationRequest(
     [MaxLength(100), RegularExpression(@"^[^\u0000]*$")] string Company,
     [Required] decimal? RequestedAmount)
 {
-    // Omits Ssn so ToString() never prints it.
+    // Omits Ssn so ToString() never prints it. The compiler-generated ToString() calls this.
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append($"FirstName = {FirstName}, LastName = {LastName}, Street = {Street}, City = {City}, ")

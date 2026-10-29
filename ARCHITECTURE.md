@@ -20,7 +20,7 @@ fundo-loan-flow/
 │   ├── src/LoanFlow.Domain/          Entities, value objects, rule engine. No dependencies.
 │   ├── src/LoanFlow.Application/     Use case, event handler, ports. Depends on Domain.
 │   ├── src/LoanFlow.Infrastructure/  EF Core + Npgsql, outbox, HTTP client, background worker.
-│   ├── src/LoanFlow.Api/             Thin controller, composition root (Program.cs), configuration.
+│   ├── src/LoanFlow.Api/             Thin controller, request/response mapping, composition root (Program.cs), configuration.
 │   └── tests/LoanFlow.Tests/         Unit + integration + endpoint tests (xUnit v3, Testcontainers PostgreSQL).
 ├── web/                              Next.js App Router: form, approved page, denied page.
 ├── external-mock/                    ~50-line Node HTTP server that stores what it receives.
@@ -31,7 +31,7 @@ Stack: .NET 10 LTS, EF Core 10 + Npgsql, PostgreSQL 18, xUnit v3 + Testcontainer
 
 Compose publishes `web` on host port 3080, the API on 5080, `external-mock` on 4080 and PostgreSQL on 5442. Inside the network they listen on 3000, 8080, 4000 and 5432. The API reads `ExternalService:BaseUrl` (the mock) and `Blacklist:Ssns` (the blocked SSNs) from configuration. Both are required at startup.
 
-Dependencies point inward: `Api → Infrastructure → Application → Domain`. Project references enforce it at compile time. Api references Infrastructure **only** in `Program.cs` to register services. The controller only sees Application types. Domain and Application never reference EF Core, ASP.NET or `HttpClient`.
+Dependencies point inward: `Api → Infrastructure → Application → Domain`. Project references enforce it at compile time. Api references Infrastructure **only** in `Program.cs`. Each layer registers its own services (`AddApplication()`, `AddInfrastructure(configuration)`). The controller only sees Application types. Domain and Application never reference EF Core, ASP.NET or `HttpClient`.
 
 | Layer | Owns | Does not own |
 |---|---|---|

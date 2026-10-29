@@ -16,6 +16,7 @@ public sealed record SubmitLoanApplicationCommand(
     }
 }
 
+// abstract: only Approved or Denied is ever returned, never a bare SubmissionResult.
 public abstract record SubmissionResult;
 
 public sealed record SubmissionApproved(Guid CustomerId, Guid ApplicationId, bool IsReturningCustomer) : SubmissionResult;

@@ -1,52 +1,14 @@
 using System.Text.Json;
 using LoanFlow.Api;
 using LoanFlow.Application;
-using LoanFlow.Domain;
 using LoanFlow.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<LoanFlowDbContext>(o =>
-    o.UseNpgsql(new NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("LoanFlow"))
-        {
-            // No Kerberos here; avoids the libgssapi probe on the chiseled image (AR-66).
-            GssEncryptionMode = GssEncryptionMode.Disable,
-        }.ConnectionString)
-        // A duplicate-SSN race is an expected 409, not an error log (AR-44).
-        .ConfigureWarnings(w => w.Log(
-            (CoreEventId.SaveChangesFailed, LogLevel.Information),
-            (RelationalEventId.CommandError, LogLevel.Information))));
-builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<LoanFlowDbContext>());
-builder.Services.AddScoped<ICustomerRepository, EfCustomerRepository>();
-builder.Services.AddScoped<IIntegrationEventPublisher, OutboxEventPublisher>();
-var blacklistedSsns = builder.Configuration.GetSection("Blacklist:Ssns").Get<string[]>();
-if (blacklistedSsns is not { Length: > 0 })
-    throw new InvalidOperationException("Blacklist:Ssns is required.");
-builder.Services.AddSingleton<ISsnBlacklist>(new ConfigurationSsnBlacklist(blacklistedSsns));
-builder.Services.AddSingleton<IDenyRule, NewYorkStateRule>();
-builder.Services.AddSingleton<IDenyRule, BlacklistedSsnRule>();
-builder.Services.AddScoped<RuleEngine>();
-builder.Services.AddScoped<SubmitLoanApplication>();
-builder.Services.AddScoped<SyncCustomerWithExternalService>();
-var externalServiceBaseUrl = builder.Configuration["ExternalService:BaseUrl"];
-if (string.IsNullOrWhiteSpace(externalServiceBaseUrl))
-    throw new InvalidOperationException("ExternalService:BaseUrl is required.");
-builder.Services.AddHttpClient<IExternalCustomerService, ExternalCustomerHttpClient>(c =>
-{
-    c.BaseAddress = new Uri(externalServiceBaseUrl);
-    c.Timeout = TimeSpan.FromSeconds(10);
-});
-if (builder.Configuration.GetValue("Outbox:Enabled", true))
-    builder.Services.AddHostedService(sp => new OutboxProcessor(
-        sp.GetRequiredService<IServiceScopeFactory>(),
-        sp.GetRequiredService<ILogger<OutboxProcessor>>(),
-        TimeSpan.FromSeconds(builder.Configuration.GetValue("Outbox:PollIntervalSeconds", 2))));
+builder.Services.AddApplication().AddInfrastructure(builder.Configuration);
 
 // Every automatic 400 goes through ProblemDetailsFactory with clean camelCase field keys (AR-48.2).
 builder.Services.AddControllers()

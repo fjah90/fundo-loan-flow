@@ -11,27 +11,14 @@ public sealed class LoanApplicationsController(SubmitLoanApplication submit, ILo
     [HttpPost]
     public async Task<IActionResult> Post(LoanApplicationRequest request, CancellationToken ct)
     {
-        var command = new SubmitLoanApplicationCommand(
-            request.FirstName, request.LastName, request.Ssn, request.Street, request.City,
-            request.State, request.ZipCode, request.Company, request.RequestedAmount!.Value);
+        var result = await submit.HandleAsync(request.ToCommand(), ct);
+        var response = result.ToResponse();
 
-        switch (await submit.HandleAsync(command, ct))
-        {
-            case SubmissionApproved a:
-                log.LogInformation("Loan application approved for customer {CustomerId}", a.CustomerId);
-                return Ok(new
-                {
-                    status = "Approved",
-                    applicationId = a.ApplicationId,
-                    customerId = a.CustomerId,
-                    isReturningCustomer = a.IsReturningCustomer,
-                });
-            case SubmissionDenied d:
-                var codes = d.Reasons.Select(r => r.Code).ToArray();
-                log.LogInformation("Loan application denied: {Codes}", string.Join(",", codes));
-                return Ok(new { status = "Denied", reasons = codes.Select(c => new { code = c }) });
-            default:
-                throw new InvalidOperationException("Unknown submission result.");
-        }
+        if (result is SubmissionApproved a)
+            log.LogInformation("Loan application approved for customer {CustomerId}", a.CustomerId);
+        else if (result is SubmissionDenied d)
+            log.LogInformation("Loan application denied: {Codes}", string.Join(",", d.Reasons.Select(r => r.Code)));
+
+        return Ok(response);
     }
 }

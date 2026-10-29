@@ -614,7 +614,8 @@
       "loanflow.application": {
         "type": "Project",
         "dependencies": {
-          "LoanFlow.Domain": "[1.0.0, )"
+          "LoanFlow.Domain": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.4, )"
         }
       },
       "loanflow.domain": {
