@@ -39,13 +39,13 @@ public class SsnTests
     [InlineData("1234567890")]
     [InlineData("12345678a")]
     [InlineData("abc-de-fghi")]
-    public void Parse_WithInvalidFormat_ThrowsArgumentExceptionForSsn(string? input)
+    public void Parse_WithInvalidFormat_ThrowsValidationErrorForSsn(string? input)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => Ssn.Parse(input));
+        var ex = Assert.Throws<DomainValidationException>(() => Ssn.Parse(input));
 
         // Assert
-        Assert.Equal("ssn", ex.ParamName);
+        Assert.Equal("ssn", ex.Field);
     }
 
     [Fact]

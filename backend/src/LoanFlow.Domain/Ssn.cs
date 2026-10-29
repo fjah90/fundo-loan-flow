@@ -13,7 +13,7 @@ public sealed partial record Ssn
     {
         var text = value?.Trim();
         if (text is null || !Format().IsMatch(text))
-            throw new ArgumentException("SSN must be 123-45-6789 or 9 digits.", "ssn");
+            throw new DomainValidationException("ssn", "SSN must be 123-45-6789 or 9 digits.");
         return new Ssn(text.Replace("-", ""));
     }
 

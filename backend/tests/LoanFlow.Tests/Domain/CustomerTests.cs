@@ -66,56 +66,56 @@ public class CustomerTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_WithBlankFirstName_ThrowsArgumentExceptionForFirstName(string? value)
+    public void Create_WithBlankFirstName_ThrowsValidationErrorForFirstName(string? value)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             Customer.Create(value, "Lovelace", ValidSsn, ValidAddress(), "Acme", 100m));
 
         // Assert
-        Assert.Equal("firstName", ex.ParamName);
+        Assert.Equal("firstName", ex.Field);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_WithBlankLastName_ThrowsArgumentExceptionForLastName(string? value)
+    public void Create_WithBlankLastName_ThrowsValidationErrorForLastName(string? value)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             Customer.Create("Ada", value, ValidSsn, ValidAddress(), "Acme", 100m));
 
         // Assert
-        Assert.Equal("lastName", ex.ParamName);
+        Assert.Equal("lastName", ex.Field);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_WithBlankCompany_ThrowsArgumentExceptionForCompany(string? value)
+    public void Create_WithBlankCompany_ThrowsValidationErrorForCompany(string? value)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             Customer.Create("Ada", "Lovelace", ValidSsn, ValidAddress(), value, 100m));
 
         // Assert
-        Assert.Equal("company", ex.ParamName);
+        Assert.Equal("company", ex.Field);
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
     [InlineData(-0.01)]
-    public void Create_WithNonPositiveAmount_ThrowsArgumentOutOfRangeForRequestedAmount(double amount)
+    public void Create_WithNonPositiveAmount_ThrowsValidationErrorForRequestedAmount(double amount)
     {
         // Act
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             Customer.Create("Ada", "Lovelace", ValidSsn, ValidAddress(), "Acme", (decimal)amount));
 
         // Assert
-        Assert.Equal("requestedAmount", ex.ParamName);
+        Assert.Equal("requestedAmount", ex.Field);
         Assert.StartsWith("Amount must be greater than 0.", ex.Message);
     }
 
@@ -186,96 +186,96 @@ public class CustomerTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void UpdateFrom_WithBlankFirstName_ThrowsArgumentExceptionForFirstName(string? value)
+    public void UpdateFrom_WithBlankFirstName_ThrowsValidationErrorForFirstName(string? value)
     {
         // Arrange
         var customer = NewCustomer();
 
         // Act
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             customer.UpdateFrom(value, "Hopper", ValidAddress(), "Navy", 100m));
 
         // Assert
-        Assert.Equal("firstName", ex.ParamName);
+        Assert.Equal("firstName", ex.Field);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void UpdateFrom_WithBlankLastName_ThrowsArgumentExceptionForLastName(string? value)
+    public void UpdateFrom_WithBlankLastName_ThrowsValidationErrorForLastName(string? value)
     {
         // Arrange
         var customer = NewCustomer();
 
         // Act
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             customer.UpdateFrom("Grace", value, ValidAddress(), "Navy", 100m));
 
         // Assert
-        Assert.Equal("lastName", ex.ParamName);
+        Assert.Equal("lastName", ex.Field);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void UpdateFrom_WithBlankCompany_ThrowsArgumentExceptionForCompany(string? value)
+    public void UpdateFrom_WithBlankCompany_ThrowsValidationErrorForCompany(string? value)
     {
         // Arrange
         var customer = NewCustomer();
 
         // Act
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             customer.UpdateFrom("Grace", "Hopper", ValidAddress(), value, 100m));
 
         // Assert
-        Assert.Equal("company", ex.ParamName);
+        Assert.Equal("company", ex.Field);
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-5)]
-    public void UpdateFrom_WithNonPositiveAmount_ThrowsArgumentOutOfRangeForRequestedAmount(double amount)
+    public void UpdateFrom_WithNonPositiveAmount_ThrowsValidationErrorForRequestedAmount(double amount)
     {
         // Arrange
         var customer = NewCustomer();
 
         // Act
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             customer.UpdateFrom("Grace", "Hopper", ValidAddress(), "Navy", (decimal)amount));
 
         // Assert
-        Assert.Equal("requestedAmount", ex.ParamName);
+        Assert.Equal("requestedAmount", ex.Field);
     }
 
     [Theory]
     [InlineData("100.001")]
     [InlineData("10000000000000000")]
-    public void Create_WithUnstorableAmount_ThrowsArgumentOutOfRangeForRequestedAmount(string amount)
+    public void Create_WithUnstorableAmount_ThrowsValidationErrorForRequestedAmount(string amount)
     {
         // Act
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             Customer.Create("Ada", "Lovelace", ValidSsn, ValidAddress(), "Acme", decimal.Parse(amount, CultureInfo.InvariantCulture)));
 
         // Assert
-        Assert.Equal("requestedAmount", ex.ParamName);
+        Assert.Equal("requestedAmount", ex.Field);
     }
 
     [Theory]
     [InlineData("100.001")]
     [InlineData("10000000000000000")]
-    public void UpdateFrom_WithUnstorableAmount_ThrowsArgumentOutOfRangeForRequestedAmount(string amount)
+    public void UpdateFrom_WithUnstorableAmount_ThrowsValidationErrorForRequestedAmount(string amount)
     {
         // Arrange
         var customer = NewCustomer();
 
         // Act
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() =>
+        var ex = Assert.Throws<DomainValidationException>(() =>
             customer.UpdateFrom("Grace", "Hopper", ValidAddress(), "Navy", decimal.Parse(amount, CultureInfo.InvariantCulture)));
 
         // Assert
-        Assert.Equal("requestedAmount", ex.ParamName);
+        Assert.Equal("requestedAmount", ex.Field);
         Assert.Equal(5000m, customer.Application.RequestedAmount);
     }
 
@@ -310,7 +310,7 @@ public class CustomerTests
         var originalAddress = customer.Address;
 
         // Act
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        Assert.Throws<DomainValidationException>(() =>
             customer.UpdateFrom("Grace", "Hopper", Address.Create("9 Oak Ave", "Dallas", "TX", "75001"), "Navy", 0m));
 
         // Assert

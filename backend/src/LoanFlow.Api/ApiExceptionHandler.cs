@@ -1,4 +1,5 @@
 using LoanFlow.Application;
+using LoanFlow.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,10 +13,10 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
         ProblemDetails problem;
         switch (exception)
         {
-            case ArgumentException { ParamName: not null } ex:
+            case DomainValidationException ex:
                 problem = new ValidationProblemDetails(new Dictionary<string, string[]>
                 {
-                    [ex.ParamName] = [ex.Message.Split(" (Parameter '")[0]],
+                    [ex.Field] = [ex.Message],
                 })
                 { Status = StatusCodes.Status400BadRequest, Title = "One or more validation errors occurred." };
                 break;

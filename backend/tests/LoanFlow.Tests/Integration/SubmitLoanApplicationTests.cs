@@ -33,7 +33,7 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
         Assert.False(approved.IsReturningCustomer);
         await using var verify = postgres.CreateContext();
         var customer = Assert.Single(await verify.Customers.ToListAsync(TestContext.Current.CancellationToken));
-        var application = Assert.Single(await verify.Applications.ToListAsync(TestContext.Current.CancellationToken));
+        var application = Assert.Single(await verify.Set<LoanApplication>().ToListAsync(TestContext.Current.CancellationToken));
         var outbox = Assert.Single(await verify.OutboxMessages.ToListAsync(TestContext.Current.CancellationToken));
         Assert.Equal(approved.CustomerId, customer.Id);
         Assert.Equal(approved.ApplicationId, application.Id);
@@ -79,7 +79,7 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
         Assert.Equal(created.ApplicationId, updated.ApplicationId);
         await using var verify = postgres.CreateContext();
         var customer = Assert.Single(await verify.Customers.ToListAsync(TestContext.Current.CancellationToken));
-        var application = Assert.Single(await verify.Applications.ToListAsync(TestContext.Current.CancellationToken));
+        var application = Assert.Single(await verify.Set<LoanApplication>().ToListAsync(TestContext.Current.CancellationToken));
         Assert.Equal("Grace", customer.FirstName);
         Assert.Equal("Hopper", customer.LastName);
         Assert.Equal("9 Oak Ave", customer.Address.Street);
@@ -107,8 +107,8 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
         var act = () => useCase.HandleAsync(Command(state: "NY", firstName: ""), TestContext.Current.CancellationToken);
 
         // Assert
-        var ex = await Assert.ThrowsAsync<ArgumentException>(act);
-        Assert.Equal("firstName", ex.ParamName);
+        var ex = await Assert.ThrowsAsync<DomainValidationException>(act);
+        Assert.Equal("firstName", ex.Field);
     }
 
     [Fact]
@@ -122,8 +122,8 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
         var act = () => useCase.HandleAsync(Command(ssn: BlacklistedSsn, amount: 0.001m), TestContext.Current.CancellationToken);
 
         // Assert
-        var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(act);
-        Assert.Equal("requestedAmount", ex.ParamName);
+        var ex = await Assert.ThrowsAsync<DomainValidationException>(act);
+        Assert.Equal("requestedAmount", ex.Field);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
         Assert.Equal("STATE_NOT_SERVED", Assert.Single(denied.Reasons).Code);
         await using var verify = postgres.CreateContext();
         var customer = Assert.Single(await verify.Customers.ToListAsync(TestContext.Current.CancellationToken));
-        var application = Assert.Single(await verify.Applications.ToListAsync(TestContext.Current.CancellationToken));
+        var application = Assert.Single(await verify.Set<LoanApplication>().ToListAsync(TestContext.Current.CancellationToken));
         Assert.Single(await verify.OutboxMessages.ToListAsync(TestContext.Current.CancellationToken));
         Assert.Equal("Ada", customer.FirstName);
         Assert.Equal("Lovelace", customer.LastName);
@@ -245,7 +245,7 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
     {
         await using var verify = postgres.CreateContext();
         Assert.Empty(await verify.Customers.ToListAsync(TestContext.Current.CancellationToken));
-        Assert.Empty(await verify.Applications.ToListAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await verify.Set<LoanApplication>().ToListAsync(TestContext.Current.CancellationToken));
         Assert.Empty(await verify.OutboxMessages.ToListAsync(TestContext.Current.CancellationToken));
     }
 

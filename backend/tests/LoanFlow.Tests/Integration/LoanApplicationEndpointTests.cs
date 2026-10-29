@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using LoanFlow.Application;
+using LoanFlow.Domain;
 using LoanFlow.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -107,11 +108,11 @@ public sealed class LoanApplicationEndpointTests(PostgresFixture postgres) : IAs
             secondBody.RootElement.GetProperty("customerId").GetGuid());
         await using var verify = postgres.CreateContext();
         Assert.Single(await verify.Customers.ToListAsync(TestContext.Current.CancellationToken));
-        Assert.Single(await verify.Applications.ToListAsync(TestContext.Current.CancellationToken));
+        Assert.Single(await verify.Set<LoanApplication>().ToListAsync(TestContext.Current.CancellationToken));
         Assert.Equal(2, await verify.OutboxMessages.CountAsync(TestContext.Current.CancellationToken));
         var customer = await verify.Customers.SingleAsync(TestContext.Current.CancellationToken);
         Assert.Equal("Grace", customer.FirstName);
-        var application = await verify.Applications.SingleAsync(TestContext.Current.CancellationToken);
+        var application = await verify.Set<LoanApplication>().SingleAsync(TestContext.Current.CancellationToken);
         Assert.Equal(9000m, application.RequestedAmount);
     }
 
@@ -250,6 +251,24 @@ public sealed class LoanApplicationEndpointTests(PostgresFixture postgres) : IAs
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         var raw = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.DoesNotContain("secret-db", raw, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Post_CommitThrowsArgumentException_Returns500ProblemJsonWithoutDetail()
+    {
+        // Arrange
+        using var factory = FactoryWithCommitThrowing(new ArgumentException("Host=secret-db", "connectionString"));
+        using var client = factory.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync(Route, Payload(), TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var raw = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("secret-db", raw, StringComparison.Ordinal);
+        Assert.DoesNotContain("connectionString", raw, StringComparison.Ordinal);
     }
 
     private WebApplicationFactory<Program> FactoryWithCommitThrowing(Exception exception) =>

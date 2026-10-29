@@ -53,13 +53,13 @@ public class UsStateTests
     [InlineData("XX")]
     [InlineData("PR")]
     [InlineData("New York")]
-    public void Parse_WithInvalidCode_ThrowsArgumentExceptionForState(string? input)
+    public void Parse_WithInvalidCode_ThrowsValidationErrorForState(string? input)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => UsState.Parse(input));
+        var ex = Assert.Throws<DomainValidationException>(() => UsState.Parse(input));
 
         // Assert
-        Assert.Equal("state", ex.ParamName);
+        Assert.Equal("state", ex.Field);
     }
 }
 
@@ -108,51 +108,51 @@ public class AddressTests
     [InlineData("abcde")]
     [InlineData("")]
     [InlineData(null)]
-    public void Create_WithInvalidZip_ThrowsArgumentExceptionForZipCode(string? zip)
+    public void Create_WithInvalidZip_ThrowsValidationErrorForZipCode(string? zip)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => Address.Create("1 Main St", "Albany", "NY", zip));
+        var ex = Assert.Throws<DomainValidationException>(() => Address.Create("1 Main St", "Albany", "NY", zip));
 
         // Assert
-        Assert.Equal("zipCode", ex.ParamName);
+        Assert.Equal("zipCode", ex.Field);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_WithBlankStreet_ThrowsArgumentExceptionForStreet(string? street)
+    public void Create_WithBlankStreet_ThrowsValidationErrorForStreet(string? street)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => Address.Create(street, "Albany", "NY", "12345"));
+        var ex = Assert.Throws<DomainValidationException>(() => Address.Create(street, "Albany", "NY", "12345"));
 
         // Assert
-        Assert.Equal("street", ex.ParamName);
+        Assert.Equal("street", ex.Field);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void Create_WithBlankCity_ThrowsArgumentExceptionForCity(string? city)
+    public void Create_WithBlankCity_ThrowsValidationErrorForCity(string? city)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => Address.Create("1 Main St", city, "NY", "12345"));
+        var ex = Assert.Throws<DomainValidationException>(() => Address.Create("1 Main St", city, "NY", "12345"));
 
         // Assert
-        Assert.Equal("city", ex.ParamName);
+        Assert.Equal("city", ex.Field);
     }
 
     [Theory]
     [InlineData("XX")]
     [InlineData("")]
     [InlineData(null)]
-    public void Create_WithInvalidState_ThrowsArgumentExceptionForState(string? state)
+    public void Create_WithInvalidState_ThrowsValidationErrorForState(string? state)
     {
         // Act
-        var ex = Assert.Throws<ArgumentException>(() => Address.Create("1 Main St", "Albany", state, "12345"));
+        var ex = Assert.Throws<DomainValidationException>(() => Address.Create("1 Main St", "Albany", state, "12345"));
 
         // Assert
-        Assert.Equal("state", ex.ParamName);
+        Assert.Equal("state", ex.Field);
     }
 }

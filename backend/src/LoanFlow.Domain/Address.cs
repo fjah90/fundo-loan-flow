@@ -21,14 +21,14 @@ public sealed partial record Address
     {
         var s = street?.Trim();
         if (string.IsNullOrEmpty(s))
-            throw new ArgumentException("Street is required.", "street");
+            throw new DomainValidationException("street", "Street is required.");
         var c = city?.Trim();
         if (string.IsNullOrEmpty(c))
-            throw new ArgumentException("City is required.", "city");
+            throw new DomainValidationException("city", "City is required.");
         var st = UsState.Parse(state);
         var zip = zipCode?.Trim();
         if (zip is null || !Zip().IsMatch(zip))
-            throw new ArgumentException("ZIP must be 12345 or 12345-6789.", "zipCode");
+            throw new DomainValidationException("zipCode", "ZIP must be 12345 or 12345-6789.");
         return new Address(s, c, st, zip);
     }
 

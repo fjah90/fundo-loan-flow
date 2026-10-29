@@ -54,7 +54,7 @@ public sealed class Customer
     {
         var text = value?.Trim();
         if (string.IsNullOrEmpty(text))
-            throw new ArgumentException($"{paramName} is required.", paramName);
+            throw new DomainValidationException(paramName, $"{paramName} is required.");
         return text;
     }
 }

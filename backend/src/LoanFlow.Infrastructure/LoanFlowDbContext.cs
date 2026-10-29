@@ -8,7 +8,6 @@ namespace LoanFlow.Infrastructure;
 public sealed class LoanFlowDbContext(DbContextOptions<LoanFlowDbContext> options) : DbContext(options), IUnitOfWork
 {
     public DbSet<Customer> Customers => Set<Customer>();
-    public DbSet<LoanApplication> Applications => Set<LoanApplication>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public async Task CommitAsync(CancellationToken ct = default)

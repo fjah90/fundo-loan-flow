@@ -29,7 +29,7 @@ fundo-loan-flow/
 
 Stack: .NET 10 LTS, EF Core 10 + Npgsql, PostgreSQL 18, xUnit v3 + Testcontainers, Next.js 16 + React 19, Node 26, Docker Compose. These were the latest stable versions on 2026-10-27.
 
-Compose publishes `web` on host port 3080, the API on 5080, `external-mock` on 4080 and PostgreSQL on 5442. Inside the network they listen on 3000, 8080, 4000 and 5432. The API reads `ExternalService:BaseUrl` (the mock) and `Blacklist:Ssns` (the blocked SSNs, required at startup) from configuration.
+Compose publishes `web` on host port 3080, the API on 5080, `external-mock` on 4080 and PostgreSQL on 5442. Inside the network they listen on 3000, 8080, 4000 and 5432. The API reads `ExternalService:BaseUrl` (the mock) and `Blacklist:Ssns` (the blocked SSNs) from configuration. Both are required at startup.
 
 Dependencies point inward: `Api → Infrastructure → Application → Domain`. Project references enforce it at compile time. Api references Infrastructure **only** in `Program.cs` to register services. The controller only sees Application types. Domain and Application never reference EF Core, ASP.NET or `HttpClient`.
 
@@ -66,6 +66,7 @@ public interface IDenyRule
   - `NewYorkStateRule` returns `STATE_NOT_SERVED`.
   - `BlacklistedSsnRule` returns `NOT_ELIGIBLE`, using `ISsnBlacklist`. The neutral code names neither the blacklist nor the SSN, but probing SSNs can still reveal that one is blocked; rate limiting is out of scope.
 - **Adding a rule:** write one class that implements `IDenyRule` and register it with one line in DI. No existing rule changes, and neither does the engine.
+  `LoanApplicant` carries only what today's rules read (state and SSN). A rule that needs another field, such as the amount, also adds that field to `LoanApplicant` and fills it in `SubmitLoanApplication`; the existing rules still do not change.
 - Rules run before the customer lookup. The blacklist is the "check the SSN" step from the brief.
 - **Denied writes nothing.** A returning customer who is denied later keeps the last approved data, and nothing is sent to the external service.
 
@@ -141,6 +142,6 @@ The database backs two invariants: unique `Customers.Ssn` and unique `Applicatio
 | Unit of work | `IUnitOfWork.CommitAsync()` → one `SaveChanges` | Customer, application and outbox row commit in one transaction. | `BeginTransaction` in the use case; one save per repository |
 | Transactional outbox | `OutboxEventPublisher` + `OutboxProcessor` | The event is stored atomically with the data and sent after commit, at least once, in order. | HTTP call inside the request; a message broker (§5) |
 | Typed `HttpClient` | `ExternalCustomerHttpClient` behind `IExternalCustomerService` | HTTP is replaceable and faked in outbox tests. `IHttpClientFactory` manages the handlers. | `new HttpClient()` per call; Refit |
-| Exception handler | `ApiExceptionHandler` (`IExceptionHandler`) | The controller only maps. One place translates exceptions: `ArgumentException` with a `ParamName` → 400 ValidationProblemDetails, `DuplicateCustomerException` → 409, anything else → 500 without internal detail. | `try`/`catch` in the controller |
+| Exception handler | `ApiExceptionHandler` (`IExceptionHandler`) | The controller only maps. One place translates exceptions: `DomainValidationException` (invalid form input, thrown by the domain with the field name) → 400 ValidationProblemDetails keyed by that field, `DuplicateCustomerException` → 409, anything else, including a stray `ArgumentException`, → 500 without internal detail. | `try`/`catch` in the controller |
 
 Left out on purpose: a mediator (one controller calls one use case; a direct call is easier to follow), `Result<T>` wrappers (`Decision` and the submission result types already model the outcomes), strongly-typed IDs, domain-event dispatch (the use case publishes its one integration event explicitly) and a generic `IRepository<T>`.

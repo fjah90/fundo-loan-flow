@@ -17,7 +17,7 @@ public sealed record UsState
     {
         var code = value?.Trim().ToUpperInvariant();
         if (code is null || !Codes.Contains(code))
-            throw new ArgumentException("State must be a US state code.", "state");
+            throw new DomainValidationException("state", "State must be a US state code.");
         return new UsState(code);
     }
 

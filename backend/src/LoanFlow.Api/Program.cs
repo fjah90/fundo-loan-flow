@@ -29,9 +29,12 @@ builder.Services.AddSingleton<IDenyRule, BlacklistedSsnRule>();
 builder.Services.AddScoped<RuleEngine>();
 builder.Services.AddScoped<SubmitLoanApplication>();
 builder.Services.AddScoped<SyncCustomerWithExternalService>();
+var externalServiceBaseUrl = builder.Configuration["ExternalService:BaseUrl"];
+if (string.IsNullOrWhiteSpace(externalServiceBaseUrl))
+    throw new InvalidOperationException("ExternalService:BaseUrl is required.");
 builder.Services.AddHttpClient<IExternalCustomerService, ExternalCustomerHttpClient>(c =>
 {
-    c.BaseAddress = new Uri(builder.Configuration["ExternalService:BaseUrl"] ?? "http://localhost:4000/");
+    c.BaseAddress = new Uri(externalServiceBaseUrl);
     c.Timeout = TimeSpan.FromSeconds(10);
 });
 if (builder.Configuration.GetValue("Outbox:Enabled", true))
