@@ -12,13 +12,21 @@ public sealed class LoanFlowDbContext(DbContextOptions<LoanFlowDbContext> option
 
     public async Task CommitAsync(CancellationToken ct = default)
     {
+        // AR-67: touch the Customer root so xmin is checked on every commit, even if only the application row or nothing changed.
+        foreach (var entry in ChangeTracker.Entries<Customer>().Where(e => e.State == EntityState.Unchanged))
+            entry.State = EntityState.Modified;
+
         try
         {
             await SaveChangesAsync(ct);
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
-            throw new DuplicateCustomerException("Customer already exists.", ex);
+            throw new CustomerConflictException("Customer already exists.", ex);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new CustomerConflictException("Customer was changed concurrently.", ex);
         }
     }
 
@@ -31,6 +39,7 @@ public sealed class LoanFlowDbContext(DbContextOptions<LoanFlowDbContext> option
             b.Property(c => c.Id).ValueGeneratedNever();
             b.Property(c => c.Ssn).HasConversion(s => s.Value, v => Ssn.Parse(v)).HasMaxLength(9);
             b.HasIndex(c => c.Ssn).IsUnique();
+            b.Property<uint>("Version").IsRowVersion(); // maps to PostgreSQL xmin (AR-67)
             b.ComplexProperty(c => c.Address, a =>
             {
                 // Get-only record properties are not mapped by convention.

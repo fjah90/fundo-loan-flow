@@ -187,7 +187,7 @@ Choices the brief left open. UI IDs in parentheses point to the decision table i
 - Denial codes are `STATE_NOT_SERVED` and `NOT_ELIGIBLE`. `NOT_ELIGIBLE` is neutral on purpose, but anyone who probes SSNs can still learn that one is blacklisted. Rate limiting is out of scope. (UI-11)
 
 **Data and transactions**
-- One customer owns one application. A repeated SSN updates both. Unique indexes on `Customers.Ssn` and `Applications.CustomerId` enforce it, and a race on the first submission returns 409.
+- One customer owns one application. A repeated SSN updates both. Unique indexes on `Customers.Ssn` and `Applications.CustomerId` enforce it. When two submissions for the same SSN arrive at once, the second gets 409, whether both insert or both update. Updates are checked with PostgreSQL `xmin` on the customer row.
 - The SSN accepts `123-45-6789` or 9 digits, is stored as 9 digits, and is masked in `ToString()`. Logs never include it.
 - The amount is greater than 0, stored as `numeric(18,2)` with at most 2 decimals. ZIP is 5 digits or ZIP+4. Ids are Guid v7.
 - The schema comes from `EnsureCreated`, not migrations.
@@ -201,7 +201,7 @@ Choices the brief left open. UI IDs in parentheses point to the decision table i
 - The mock adds `GET /customers` and `POST /_admin/fail-next/{n}` to show received data and retries.
 
 **API**
-- A denial returns 200 with `status: "Denied"`. Invalid input returns 400 ProblemDetails with errors keyed by field name. A duplicate customer returns 409.
+- A denial returns 200 with `status: "Denied"`. Invalid input returns 400 ProblemDetails with errors keyed by field name. A concurrent submission for the same customer returns 409.
 - The API container has no healthcheck, because the chiseled image has no shell.
 
 **UI**
@@ -221,12 +221,9 @@ Choices the brief left open. UI IDs in parentheses point to the decision table i
 ## Not resolved
 
 - Outbox retries have no limit and no dead-letter, so a row that always fails blocks the queue behind it.
-- Concurrent updates of one returning customer end with the last write. There is no concurrency token.
 - Migrations and `FOR UPDATE SKIP LOCKED` are missing, so the outbox is safe for one API instance only.
 - The SSN is stored unencrypted.
 - The form has no automated browser test. The five flows were checked by hand.
 - The tests need a local .NET SDK. Running them inside a container requires `TESTCONTAINERS_HOST_OVERRIDE`.
-- Npgsql logs `libgssapi_krb5.so.2: cannot open shared object file` when it connects from the chiseled image. It has no effect.
-- The outbox query is logged every 2 seconds at Information level (`Microsoft.EntityFrameworkCore.Database.Command`), which fills `docker compose logs`.
 
 Built with help from Claude Code.

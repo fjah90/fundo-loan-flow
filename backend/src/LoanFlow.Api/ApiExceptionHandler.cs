@@ -20,11 +20,11 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
                 })
                 { Status = StatusCodes.Status400BadRequest, Title = "One or more validation errors occurred." };
                 break;
-            case DuplicateCustomerException:
+            case CustomerConflictException:
                 problem = new ProblemDetails
                 {
                     Status = StatusCodes.Status409Conflict,
-                    Title = "Customer already exists.",
+                    Title = "Another request changed this customer. Try again.",
                 };
                 break;
             default:

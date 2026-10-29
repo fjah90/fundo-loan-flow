@@ -92,7 +92,8 @@ Sending HTTP inside the transaction would break both: a remote call cannot be ro
 |---|---|
 | A deny rule matches | Nothing written. 200 with `"status": "Denied"` and reason codes. |
 | Database error during commit | Transaction rolls back: no customer, no application, no outbox row, so no event. API returns 500 ProblemDetails. |
-| Two concurrent *first* submissions with the same SSN | The unique index on `Customers.Ssn` rejects the second insert with PostgreSQL error `23505`. `LoanFlowDbContext.CommitAsync` translates it to `DuplicateCustomerException`, and the API returns 409. Resubmitting goes through the update path. |
+| Two concurrent *first* submissions with the same SSN | The unique index on `Customers.Ssn` rejects the second insert with PostgreSQL error `23505`. `LoanFlowDbContext.CommitAsync` translates it to `CustomerConflictException`, and the API returns 409. Resubmitting goes through the update path. |
+| Two concurrent submissions for the same returning customer | Every commit of a returning customer updates the `Customers` row with `WHERE xmin = <value read>`, even when only the amount changed or nothing did. The second commit updates 0 rows, EF throws `DbUpdateConcurrencyException`, `CommitAsync` translates it to `CustomerConflictException`, and the API returns 409. That request writes nothing, outbox row included. |
 | External service down | Data is already committed. The outbox row stays pending and the worker retries. |
 | Worker crashes after the mock answered but before marking the row | The row is sent again. The mock upserts by `customerId`, so the retry is harmless. |
 
@@ -123,7 +124,6 @@ The database backs two invariants: unique `Customers.Ssn` and unique `Applicatio
 | EF migrations | `EnsureCreated` is enough for one schema version. If the schema changes, reset with `docker compose down -v`. | The schema has to evolve with real data. |
 | Max attempts and dead-letter | A row that keeps failing blocks the queue. The mock only fails when asked to, and `LastError` stays visible. | Real traffic against a partner that can return permanent 4xx errors. |
 | `FOR UPDATE SKIP LOCKED` in the outbox | A single API instance runs a single worker, so rows are never claimed twice. | More than one API instance. |
-| Optimistic concurrency on the update path | Two simultaneous submissions for the same returning customer: the last write wins. | Real concurrent edits (an `xmin` concurrency token is one line). |
 | Mock persistence | The mock keeps records in memory only. If it restarts, it loses its data, and a later `PUT` upserts an unknown id. A real service would return 404 and need a re-create. | A real partner integration. |
 | API container healthcheck | The chiseled runtime image has no shell or curl. `web` only calls the API on submit. | Orchestrators that need readiness probes. |
 | SSN encryption at rest | The SSN is stored unencrypted, which is acceptable for test data in a local demo. The SSN is kept out of our logs (masked where printed) and never put in URLs. | Before any real data. |
@@ -142,6 +142,6 @@ The database backs two invariants: unique `Customers.Ssn` and unique `Applicatio
 | Unit of work | `IUnitOfWork.CommitAsync()` → one `SaveChanges` | Customer, application and outbox row commit in one transaction. | `BeginTransaction` in the use case; one save per repository |
 | Transactional outbox | `OutboxEventPublisher` + `OutboxProcessor` | The event is stored atomically with the data and sent after commit, at least once, in order. | HTTP call inside the request; a message broker (§5) |
 | Typed `HttpClient` | `ExternalCustomerHttpClient` behind `IExternalCustomerService` | HTTP is replaceable and faked in outbox tests. `IHttpClientFactory` manages the handlers. | `new HttpClient()` per call; Refit |
-| Exception handler | `ApiExceptionHandler` (`IExceptionHandler`) | The controller only maps. One place translates exceptions: `DomainValidationException` (invalid form input, thrown by the domain with the field name) → 400 ValidationProblemDetails keyed by that field, `DuplicateCustomerException` → 409, anything else, including a stray `ArgumentException`, → 500 without internal detail. | `try`/`catch` in the controller |
+| Exception handler | `ApiExceptionHandler` (`IExceptionHandler`) | The controller only maps. One place translates exceptions: `DomainValidationException` (invalid form input, thrown by the domain with the field name) → 400 ValidationProblemDetails keyed by that field, `CustomerConflictException` (duplicate insert or concurrent update) → 409, anything else, including a stray `ArgumentException`, → 500 without internal detail. | `try`/`catch` in the controller |
 
 Left out on purpose: a mediator (one controller calls one use case; a direct call is easier to follow), `Result<T>` wrappers (`Decision` and the submission result types already model the outcomes), strongly-typed IDs, domain-event dispatch (the use case publishes its one integration event explicitly) and a generic `IRepository<T>`.

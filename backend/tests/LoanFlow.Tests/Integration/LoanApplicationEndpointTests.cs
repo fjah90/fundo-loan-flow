@@ -222,10 +222,10 @@ public sealed class LoanApplicationEndpointTests(PostgresFixture postgres) : IAs
     }
 
     [Fact]
-    public async Task Post_CommitThrowsDuplicateCustomer_Returns409ProblemJson()
+    public async Task Post_CommitThrowsCustomerConflict_Returns409ProblemJson()
     {
         // Arrange
-        using var factory = FactoryWithCommitThrowing(new DuplicateCustomerException("dup", new Exception()));
+        using var factory = FactoryWithCommitThrowing(new CustomerConflictException("dup", new Exception()));
         using var client = factory.CreateClient();
 
         // Act

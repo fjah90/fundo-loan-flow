@@ -8,11 +8,16 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<LoanFlowDbContext>(o =>
-    o.UseNpgsql(builder.Configuration.GetConnectionString("LoanFlow"))
+    o.UseNpgsql(new NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("LoanFlow"))
+        {
+            // No Kerberos here; avoids the libgssapi probe on the chiseled image (AR-66).
+            GssEncryptionMode = GssEncryptionMode.Disable,
+        }.ConnectionString)
         // A duplicate-SSN race is an expected 409, not an error log (AR-44).
         .ConfigureWarnings(w => w.Log(
             (CoreEventId.SaveChangesFailed, LogLevel.Information),

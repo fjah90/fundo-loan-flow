@@ -198,7 +198,7 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
     }
 
     [Fact]
-    public async Task CommitAsync_SecondContextInsertsSameSsn_ThrowsDuplicateCustomerException()
+    public async Task CommitAsync_SecondContextInsertsSameSsn_ThrowsCustomerConflictException()
     {
         // Arrange
         var ssn = Ssn.Parse(ValidSsn);
@@ -212,9 +212,96 @@ public sealed class SubmitLoanApplicationTests(PostgresFixture postgres) : IAsyn
         var act = () => db2.CommitAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        await Assert.ThrowsAsync<DuplicateCustomerException>(act);
+        await Assert.ThrowsAsync<CustomerConflictException>(act);
         await using var verify = postgres.CreateContext();
         Assert.Single(await verify.Customers.ToListAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task CommitAsync_SecondContextUpdatesSameCustomer_ThrowsCustomerConflictException()
+    {
+        // Arrange
+        var ssn = Ssn.Parse(ValidSsn);
+        await using (var seed = postgres.CreateContext())
+        {
+            new EfCustomerRepository(seed).Add(NewCustomer(ssn));
+            await seed.CommitAsync(TestContext.Current.CancellationToken);
+        }
+        await using var db1 = postgres.CreateContext();
+        await using var db2 = postgres.CreateContext();
+        var first = await new EfCustomerRepository(db1).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        var second = await new EfCustomerRepository(db2).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        var address = Address.Create("1 Main St", "Beverly Hills", "CA", "90210");
+        first!.UpdateFrom("Ada", "Lovelace", address, "Analytical Engines", 6000m);
+        second!.UpdateFrom("Ada", "Lovelace", address, "Analytical Engines", 7000m);
+        await db1.CommitAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        var act = () => db2.CommitAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        await Assert.ThrowsAsync<CustomerConflictException>(act);
+        await using var verify = postgres.CreateContext();
+        var saved = await new EfCustomerRepository(verify).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        Assert.Equal(6000m, saved!.Application.RequestedAmount);
+    }
+
+    [Fact]
+    public async Task CommitAsync_FirstChangesNameSecondChangesAmount_ThrowsCustomerConflictException()
+    {
+        // Arrange
+        var ssn = Ssn.Parse(ValidSsn);
+        await using (var seed = postgres.CreateContext())
+        {
+            new EfCustomerRepository(seed).Add(NewCustomer(ssn));
+            await seed.CommitAsync(TestContext.Current.CancellationToken);
+        }
+        await using var db1 = postgres.CreateContext();
+        await using var db2 = postgres.CreateContext();
+        var first = await new EfCustomerRepository(db1).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        var second = await new EfCustomerRepository(db2).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        var address = Address.Create("1 Main St", "Beverly Hills", "CA", "90210");
+        first!.UpdateFrom("Grace", "Lovelace", address, "Analytical Engines", 5000m);
+        second!.UpdateFrom("Ada", "Lovelace", address, "Analytical Engines", 7000m);
+        await db1.CommitAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        var act = () => db2.CommitAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        await Assert.ThrowsAsync<CustomerConflictException>(act);
+        await using var verify = postgres.CreateContext();
+        var saved = await new EfCustomerRepository(verify).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        Assert.Equal(5000m, saved!.Application.RequestedAmount);
+    }
+
+    [Fact]
+    public async Task CommitAsync_FirstChangesAmountSecondResubmitsIdentical_ThrowsCustomerConflictException()
+    {
+        // Arrange
+        var ssn = Ssn.Parse(ValidSsn);
+        await using (var seed = postgres.CreateContext())
+        {
+            new EfCustomerRepository(seed).Add(NewCustomer(ssn));
+            await seed.CommitAsync(TestContext.Current.CancellationToken);
+        }
+        await using var db1 = postgres.CreateContext();
+        await using var db2 = postgres.CreateContext();
+        var first = await new EfCustomerRepository(db1).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        var second = await new EfCustomerRepository(db2).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        var address = Address.Create("1 Main St", "Beverly Hills", "CA", "90210");
+        first!.UpdateFrom("Ada", "Lovelace", address, "Analytical Engines", 6000m);
+        second!.UpdateFrom("Ada", "Lovelace", address, "Analytical Engines", 5000m);
+        await db1.CommitAsync(TestContext.Current.CancellationToken);
+
+        // Act
+        var act = () => db2.CommitAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        await Assert.ThrowsAsync<CustomerConflictException>(act);
+        await using var verify = postgres.CreateContext();
+        var saved = await new EfCustomerRepository(verify).GetBySsnAsync(ssn, TestContext.Current.CancellationToken);
+        Assert.Equal(6000m, saved!.Application.RequestedAmount);
     }
 
     private static SubmitLoanApplication CreateUseCase(LoanFlowDbContext db) =>

@@ -2,6 +2,6 @@ namespace LoanFlow.Application;
 
 public interface IUnitOfWork
 {
-    /// <exception cref="DuplicateCustomerException">A unique index rejected the customer.</exception>
+    /// <exception cref="CustomerConflictException">A unique index or a concurrent update rejected the customer.</exception>
     Task CommitAsync(CancellationToken ct = default);
 }
